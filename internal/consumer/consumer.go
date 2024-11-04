@@ -11,7 +11,7 @@ import (
 	"github.com/DisKiDKelp/mini-scan-takehome/pkg/scanning"
 )
 
-func processMessage(ctx context.Context, database *db.DB, msg *pubsub.Message) error {
+func ProcessMessage(ctx context.Context, database *db.DB, msg *pubsub.Message) error {
     var scan scanning.Scan
     if err := json.Unmarshal(msg.Data, &scan); err != nil {
         return fmt.Errorf("failed to unmarshal scan data: %w", err)
@@ -96,7 +96,7 @@ func processMessage(ctx context.Context, database *db.DB, msg *pubsub.Message) e
 func Start(ctx context.Context, database *db.DB, sub *pubsub.Subscription) error {
 
 	return sub.Receive(ctx, func(ctx context.Context, msg *pubsub.Message) {
-		if err := processMessage(ctx, database, msg); err != nil {
+		if err := ProcessMessage(ctx, database, msg); err != nil {
 			log.Printf("Error processing message: %v", err)
 		}
 	})

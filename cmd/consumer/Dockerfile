@@ -5,10 +5,10 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download && go mod verify
 COPY . .
-RUN CGO_ENABLED=1 go build -o consumer ./cmd/consumer
+RUN CGO_ENABLED=0 go build -o consumer ./cmd/consumer
 
 # Copy binary into slim image
 FROM alpine
-WORKDIR /app
+WORKDIR app
 COPY --from=builder /src/consumer .
 CMD ["/app/consumer"]
