@@ -2,9 +2,8 @@ package main
 
 import (
 	"context"
-	"os"
+	"log"
 	"flag"
-	"fmt"
 	"github.com/DisKiDKelp/mini-scan-takehome/internal/db"
 	"github.com/DisKiDKelp/mini-scan-takehome/internal/consumer"
 	"cloud.google.com/go/pubsub"
@@ -15,23 +14,25 @@ func main() {
 
 	projectId := flag.String("project", "test-project", "GCP Project ID")
 
+	// Initialize SQLite database
+	database, err := db.NewPostgresConnection()
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+	defer database.Close()
+	log.Println("Connected Database.")
+
 	client, err := pubsub.NewClient(ctx, *projectId)
 	if err != nil {
 		panic(err)
 	}
 	defer client.Close()
+	log.Println("Connected Pub/Sub.")
 
 	sub := client.Subscription("scan-sub")
 
-	// Initialize SQLite database
-	database, err := db.NewSQLiteConnection("file:mydatabase.db?cache=shared&mode=rwc")
-	if err != nil {
-		log.Fatalf("Failed to connect to SQLite: %v", err)
-	}
-	defer database.Close()
-
 	// Start the consumer
-	if err := consumer.Start(ctx, database, client); err != nil {
+	if err := consumer.Start(ctx, database, sub); err != nil {
 		log.Fatalf("Failed to start consumer: %v", err)
 	}
 }
