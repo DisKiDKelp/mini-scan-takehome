@@ -1,5 +1,21 @@
-version: '3'
 services:
+
+  # PostgreSQL database service
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: mini_scan_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "user", "-d", "mini_scan_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # Starts the P/S emulator
   pubsub:
@@ -27,7 +43,7 @@ services:
     depends_on:
       mk-topic:
         condition: service_completed_successfully
-    command: PUT http://pubsub:8085/v1/projects/test-project/subscriptions/scan-sub topic=projects/test-project/topics/scan-topic --ignore-stdin 
+    command: PUT http://pubsub:8085/v1/projects/test-project/subscriptions/scan-sub topic=projects/test-project/topics/scan-topic --ignore-stdin
 
   # Runs the "scanner"
   scanner:
@@ -40,3 +56,29 @@ services:
     build:
       context: .
       dockerfile: ./cmd/scanner/Dockerfile
+
+  # Runs the "consumer"
+  consumer:
+    depends_on:
+      mk-subscription:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      scanner:
+        condition: service_started
+    environment:
+      PUBSUB_EMULATOR_HOST: pubsub:8085
+      PUBSUB_PROJECT_ID: test-project
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: mini_scan_db
+    build:
+      context: .
+      dockerfile: ./cmd/consumer/Dockerfile
+    volumes:
+      - postgres-data:/data
+
+volumes:
+  postgres-data:
+    driver: local

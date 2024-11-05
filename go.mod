@@ -1,8 +1,12 @@
-module github.com/censys/scan-takehome
+module github.com/DisKiDKelp/mini-scan-takehome
 
 go 1.20
 
-require cloud.google.com/go/pubsub v1.33.0
+require (
+	cloud.google.com/go/pubsub v1.33.0
+	github.com/google/uuid v1.3.0
+	github.com/lib/pq v1.10.9
+)
 
 require (
 	cloud.google.com/go v0.110.2 // indirect
@@ -15,6 +19,7 @@ require (
 	github.com/google/s2a-go v0.1.4 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.2.3 // indirect
 	github.com/googleapis/gax-go/v2 v2.11.0 // indirect
+	github.com/joho/godotenv v1.5.1 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	golang.org/x/crypto v0.17.0 // indirect
 	golang.org/x/net v0.17.0 // indirect

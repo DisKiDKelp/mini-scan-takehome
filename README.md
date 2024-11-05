@@ -1,47 +1,109 @@
-# Mini-Scan
+# Mini-Scan Take-Home Project
 
-Hello!
+This project is a simple application simulating a scanning and message processing system using Google Cloud Pub/Sub and PostgreSQL. It pulls scan results from a Pub/Sub subscription, processes them, and maintains an up-to-date record of each unique `(ip, port, service)`. This information is then stored in a PostgreSQL database, normalized between two tables: `ip_addresses` and `messages`.
 
-As you've heard by now, Censys scans the internet at an incredible scale. Processing the results necessitates scaling horizontally across thousands of machines. One key aspect of our architecture is the use of distributed queues to pass data between machines.
+## Table of Contents
 
----
+- [Requirements](#requirements)
+- [Setup and Installation](#setup-and-installation)
+- [Running the Application](#running-the-application)
+- [Database Schema](#database-schema)
+- [Testing](#testing)
+- [Acknowledgments](#acknowledgments)
 
-The `docker-compose.yml` file sets up a toy example of a scanner. It spins up a Google Pub/Sub emulator, creates a topic and subscription, and publishes scan results to the topic. It can be run via `docker compose up`.
+## Requirements
 
-Your job is to build the data processing side. It should:
-1. Pull scan results from the subscription `scan-sub`.
-2. Maintain an up-to-date record of each unique `(ip, port, service)`. This should contain when the service was last scanned and a string containing the service's response.
+- **Go** (version 1.16+)
+- **Docker** and **Docker Compose** for running PostgreSQL and Pub/Sub emulator
+- **Google Cloud SDK** for Pub/Sub emulation
 
-> **_NOTE_**
-The scanner can publish data in two formats, shown below. In both of the following examples, the service response should be stored as: `"hello world"`.
-> ```javascript
-> {
->   // ...
->   "data_version": 1,
->   "data": {
->     "response_bytes_utf8": "aGVsbG8gd29ybGQ="
->   }
-> }
->
-> {
->   // ...
->   "data_version": 2,
->   "data": {
->     "response_str": "hello world"
->   }
-> }
-> ```
+## Setup and Installation
 
-Your processing application should be able to be scaled horizontally, but this isn't something you need to actually do. The processing application should use `at-least-once` semantics where ever applicable.
+### 1. Clone the Repository
 
-You may write this in any languages you choose, but Go, Scala, or Rust would be preferred. You may use any data store of your choosing, with `sqlite` being one example.
+```bash
+git clone https://github.com/DisKiDKelp/mini-scan-takehome.git
+cd mini-scan-takehome
+```
 
---- 
+### 2. Environment Variables
 
-Please upload the code to a publicly accessible GitHub, GitLab or other public code repository account.  This README file should be updated, briefly documenting your solution. Like our own code, we expect testing instructions: whether it’s an automated test framework, or simple manual steps.
+Create an `.env` file in the project root with the following environment variables for the application:
 
-To help set expectations, we believe you should aim to take no more than 4 hours on this task.
+```bash
+# Pub/Sub
+PUBSUB_EMULATOR_HOST=localhost:8085
+PUBSUB_PROJECT_ID=test-project
 
-We understand that you have other responsibilities, so if you think you’ll need more than 5 business days, just let us know when you expect to send a reply.
+# PostgreSQL Database
+POSTGRES_HOST=localhost
+POSTGRES_USER=user
+POSTGRES_PASSWORD=password
+POSTGRES_DB=mini_scan_db
+```
 
-Please don’t hesitate to ask any follow-up questions for clarification.
+### 3. Run Services with Docker Compose
+
+Use Docker Compose to spin up PostgreSQL and the Pub/Sub emulator:
+
+```bash
+docker-compose up --build
+```
+
+This starts the following services:
+- **PostgreSQL**: Used for storing IP address and message data.
+- **Google Pub/Sub Emulator**: Used to simulate Pub/Sub for local development.
+- **Scanner**: Used to simulate inserts into Pub/Sub for local development.
+- **Consumer**: Service inserting into local PostgreSQL
+
+### 4. Initialize the Database
+
+The application will automatically create the required tables (`ip_addresses` and `messages`) if they don't exist. You can modify or reset the database by updating the `NewPostgresConnection` function in `internal/db/database.go`.
+
+## Running the Application
+
+Once the environment is set up, you can start the main consumer application locally with:
+
+```bash
+go run cmd/consumer/main.go
+```
+
+This will start listening for messages from the Pub/Sub subscription and store processed information in the database.
+
+## Database Schema
+
+The project uses a normalized schema with two tables:
+
+- **ip_addresses**: Stores unique `(ip, port)` pairs, along with `service`, `last_updated`, and a `lock_id` for concurrency control.
+- **messages**: Stores individual messages with a foreign key reference to `ip_addresses(id)`, along with fields for `message_content`, `service`, `response`, and `insertion_time`.
+
+### Schema Definition
+
+```sql
+CREATE TABLE ip_addresses (
+    id SERIAL PRIMARY KEY,
+    ip TEXT,
+    port INTEGER,
+    service TEXT,
+    last_updated TIMESTAMP,
+    lock_id TEXT,
+    UNIQUE (ip, port)
+);
+
+CREATE TABLE messages (
+    id SERIAL PRIMARY KEY,
+    ip_address_id INTEGER REFERENCES ip_addresses(id) ON DELETE CASCADE,
+    message_content TEXT,
+    service TEXT,
+    response TEXT,
+    insertion_time TIMESTAMP
+);
+```
+
+### Testing notes
+
+The docker logs will also have spit out of the messages being tracked and inserted, to verify you should be able to hook up to the locally created PostgreSQL and see data being inserted and used.
+
+## Acknowledgments
+
+This project was created as a coding exercise. It uses Go, Google Cloud Pub/Sub emulator, and PostgreSQL.
