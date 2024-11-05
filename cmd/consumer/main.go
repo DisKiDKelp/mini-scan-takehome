@@ -13,6 +13,9 @@ import (
 
 func main() {
 	err := godotenv.Load()
+	if err != nil {
+		log.Fatalf("Failed to load Env Vars: %v", err)
+	}
 
 	ctx := context.Background()
 
